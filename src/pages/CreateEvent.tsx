@@ -125,7 +125,7 @@ const CreateEvent = () => {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Create Event</h1>
         <p className="text-muted-foreground">Set up a new event for your organization</p>

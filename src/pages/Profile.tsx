@@ -79,17 +79,15 @@ const Profile = () => {
 
   if (!user) {
     return (
-      <div className="p-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">Profile not found</h1>
-          <p className="text-muted-foreground">Please log in to view your profile.</p>
-        </div>
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-foreground">Profile not found</h1>
+        <p className="text-muted-foreground">Please log in to view your profile.</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Profile</h1>

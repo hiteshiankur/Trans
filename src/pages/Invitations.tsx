@@ -119,7 +119,7 @@ const Invitations = () => {
   const respondedInvitations = filteredInvitations.filter(inv => inv.status !== 'pending');
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Invitations</h1>
         <p className="text-muted-foreground">Manage your event invitations</p>

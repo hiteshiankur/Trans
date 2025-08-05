@@ -72,7 +72,7 @@ const Home = () => {
 
   if (isAdmin) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
@@ -171,7 +171,7 @@ const Home = () => {
 
   // Employee View
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Events</h1>
         <p className="text-muted-foreground">Discover and join upcoming events</p>

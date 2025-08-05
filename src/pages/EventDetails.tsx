@@ -19,6 +19,9 @@ import {
   Edit
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import PunchInButton from '@/components/PunchInButton';
+import JoinRequestManager from '@/components/JoinRequestManager';
+import ReportExporter from '@/components/ReportExporter';
 
 // Mock event data
 const mockEventDetails = {
@@ -65,14 +68,12 @@ const EventDetails = () => {
 
   if (!event) {
     return (
-      <div className="p-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">Event not found</h1>
-          <p className="text-muted-foreground">The event you're looking for doesn't exist.</p>
-          <Button onClick={() => navigate('/')} className="mt-4">
-            Back to Home
-          </Button>
-        </div>
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-foreground">Event not found</h1>
+        <p className="text-muted-foreground">The event you're looking for doesn't exist.</p>
+        <Button onClick={() => navigate('/')} className="mt-4">
+          Back to Home
+        </Button>
       </div>
     );
   }
@@ -117,7 +118,7 @@ const EventDetails = () => {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button 
@@ -233,116 +234,118 @@ const EventDetails = () => {
             </CardContent>
           </Card>
 
-          {/* Attendance Management (Admin Only) */}
+          {/* Join Request Manager (Admin Only) */}
           {isAdmin && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Attendance Management</CardTitle>
-                <CardDescription>Monitor and manage event attendance</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">{event.totalInvitees}</div>
-                      <div className="text-xs text-muted-foreground">Total Invited</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-success">{event.acceptedInvitees}</div>
-                      <div className="text-xs text-muted-foreground">Accepted</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-warning">{event.attendees}</div>
-                      <div className="text-xs text-muted-foreground">Checked In</div>
-                    </div>
-                  </div>
+            <JoinRequestManager
+              eventId={event.id}
+              eventTitle={event.title}
+              requests={[
+                {
+                  id: '1',
+                  userId: '6',
+                  userName: 'Alex Chen',
+                  userEmail: 'alex.chen@company.com',
+                  userJobTitle: 'Data Analyst',
+                  requestedAt: '2024-08-01T10:30:00Z',
+                  status: 'pending',
+                  message: 'I would like to attend this workshop to improve my team collaboration skills.'
+                },
+                {
+                  id: '2',
+                  userId: '7',
+                  userName: 'Maria Garcia',
+                  userEmail: 'maria.garcia@company.com',
+                  userJobTitle: 'Marketing Specialist',
+                  requestedAt: '2024-08-02T14:15:00Z',
+                  status: 'pending'
+                }
+              ]}
+            />
+          )}
 
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Invitee Status</h4>
-                    {event.invitees.map((invitee) => (
-                      <div key={invitee.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">
-                              {invitee.name.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium text-sm">{invitee.name}</p>
-                            <p className="text-xs text-muted-foreground">{invitee.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {invitee.punchIn && (
-                            <span className="text-xs text-success">
-                              Checked in at {invitee.punchIn}
-                            </span>
-                          )}
-                          <Badge 
-                            variant={invitee.status === 'accepted' ? 'default' : invitee.status === 'declined' ? 'destructive' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {invitee.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Report Exporter (Admin Only - Completed Events) */}
+          {isAdmin && event.status === 'completed' && (
+            <ReportExporter
+              eventData={{
+                eventId: event.id,
+                eventTitle: event.title,
+                eventDate: event.startDate,
+                eventTime: `${event.startTime} - ${event.endTime}`,
+                eventLocation: event.location,
+                totalInvitees: event.totalInvitees,
+                acceptedInvitees: event.acceptedInvitees,
+                attendees: event.attendees,
+                participants: event.invitees.map(invitee => ({
+                  id: invitee.id,
+                  name: invitee.name,
+                  email: invitee.email,
+                  joinRequestStatus: invitee.status === 'accepted' ? 'accepted' : 
+                                   invitee.status === 'declined' ? 'rejected' : 'pending',
+                  punchInTime: invitee.punchIn || undefined,
+                  punchOutTime: invitee.punchIn ? '17:30' : undefined,
+                  attendanceStatus: invitee.punchIn ? 'joined' : 
+                                  invitee.status === 'accepted' ? 'no-show' : 'pending'
+                }))
+              }}
+            />
           )}
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Action Card */}
+          {/* Join/Punch In Card */}
           {!isAdmin && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Join Event</CardTitle>
-                <CardDescription>
-                  Request to participate in this event
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {event.hasUserJoined ? (
-                  <div className="text-center space-y-3">
-                    <CheckCircle className="w-12 h-12 text-success mx-auto" />
-                    <div>
-                      <p className="font-medium text-success">Already Joined</p>
-                      <p className="text-sm text-muted-foreground">
-                        You're registered for this event
-                      </p>
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Join Event</CardTitle>
+                  <CardDescription>
+                    Request to participate in this event
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {event.hasUserJoined ? (
+                    <div className="text-center space-y-3">
+                      <CheckCircle className="w-12 h-12 text-success mx-auto" />
+                      <div>
+                        <p className="font-medium text-success">Already Joined</p>
+                        <p className="text-sm text-muted-foreground">
+                          You're registered for this event
+                        </p>
+                      </div>
                     </div>
-                    {event.status === 'ongoing' && (
-                      <Button className="w-full">
-                        <UserCheck className="w-4 h-4 mr-2" />
-                        Punch In
-                      </Button>
-                    )}
-                  </div>
-                ) : event.isUserEligible && ['upcoming', 'ongoing'].includes(event.status) ? (
-                  <Button 
-                    className="w-full" 
-                    onClick={handleJoinRequest}
-                    disabled={isJoinLoading}
-                  >
-                    {isJoinLoading ? 'Sending Request...' : 'Ask to Join'}
-                  </Button>
-                ) : (
-                  <div className="text-center space-y-3">
-                    <XCircle className="w-12 h-12 text-muted-foreground mx-auto" />
-                    <div>
-                      <p className="font-medium text-muted-foreground">Not Eligible</p>
-                      <p className="text-sm text-muted-foreground">
-                        You cannot join this event
-                      </p>
+                  ) : event.isUserEligible && ['upcoming', 'ongoing'].includes(event.status) ? (
+                    <Button 
+                      className="w-full" 
+                      onClick={handleJoinRequest}
+                      disabled={isJoinLoading}
+                    >
+                      {isJoinLoading ? 'Sending Request...' : 'Ask to Join'}
+                    </Button>
+                  ) : (
+                    <div className="text-center space-y-3">
+                      <XCircle className="w-12 h-12 text-muted-foreground mx-auto" />
+                      <div>
+                        <p className="font-medium text-muted-foreground">Not Eligible</p>
+                        <p className="text-sm text-muted-foreground">
+                          You cannot join this event
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Punch In Component */}
+              <PunchInButton
+                eventId={event.id}
+                eventTitle={event.title}
+                eventLocation={event.location}
+                eventCoordinates={event.coordinates}
+                isActive={event.status === 'ongoing'}
+                hasJoined={event.hasUserJoined}
+              />
+            </>
           )}
 
           {/* Event HRs */}
