@@ -9,7 +9,7 @@ const Footer = () => {
   return (
     <footer className="bg-gray-50">
       <div className="mx-auto px-4 sm:px-6 lg:px-44 pt-12 pb-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-48">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-16 lg:gap-24 xl:gap-48">
           {/* Logo */}
           <div className="flex justify-start items-start">
             <Link to="/" className="flex items-center">
