@@ -27,10 +27,9 @@ const Profile = () => {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.name || '',
+    fullName: user?.fullName || '',
     email: user?.email || '',
-    phone: user?.phone || '',
-    address: user?.address || '',
+    phoneNumber: user?.phoneNumber || '',
     jobTitle: user?.jobTitle || '',
     workLocation: user?.workLocation || '',
   });
@@ -54,10 +53,9 @@ const Profile = () => {
   const handleCancel = () => {
     // Reset form data to original values
     setFormData({
-      name: user?.name || '',
+      fullName: user?.fullName || '',
       email: user?.email || '',
-      phone: user?.phone || '',
-      address: user?.address || '',
+      phoneNumber: user?.phoneNumber || '',
       jobTitle: user?.jobTitle || '',
       workLocation: user?.workLocation || '',
     });
@@ -119,15 +117,15 @@ const Profile = () => {
           <CardHeader className="text-center">
             <Avatar className="w-24 h-24 mx-auto mb-4">
               <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                {user.name.split(' ').map(n => n[0]).join('')}
+                {(user.fullName || user.email || 'U').split(' ').map(n => n[0]).join('')}
               </AvatarFallback>
             </Avatar>
-            <CardTitle className="text-xl">{user.name}</CardTitle>
+            <CardTitle className="text-xl">{user.fullName || user.email}</CardTitle>
             <CardDescription>{user.email}</CardDescription>
             <div className="flex justify-center mt-2">
               <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${getRoleColor(user.role)}`}>
                 <Shield className="w-3 h-3" />
-                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User'}
               </div>
             </div>
           </CardHeader>
@@ -179,9 +177,9 @@ const Profile = () => {
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
+                      id="fullName"
+                      name="fullName"
+                      value={formData.fullName}
                       onChange={handleInputChange}
                       className="pl-10"
                     />
@@ -189,7 +187,7 @@ const Profile = () => {
                 ) : (
                   <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
                     <User className="w-4 h-4 text-muted-foreground" />
-                    <span>{user.name}</span>
+                    <span>{user.fullName || 'Not provided'}</span>
                   </div>
                 )}
               </div>
@@ -211,9 +209,9 @@ const Profile = () => {
                   <div className="relative">
                     <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      value={formData.phoneNumber}
                       onChange={handleInputChange}
                       className="pl-10"
                       placeholder="Enter phone number"
@@ -222,7 +220,7 @@ const Profile = () => {
                 ) : (
                   <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
                     <Phone className="w-4 h-4 text-muted-foreground" />
-                    <span>{user.phone || 'Not provided'}</span>
+                    <span>{user.phoneNumber || 'Not provided'}</span>
                   </div>
                 )}
               </div>
@@ -248,28 +246,6 @@ const Profile = () => {
                   </div>
                 )}
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              {isEditing ? (
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    placeholder="Enter your address"
-                  />
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <span>{user.address || 'Not provided'}</span>
-                </div>
-              )}
             </div>
 
             <div className="space-y-2">

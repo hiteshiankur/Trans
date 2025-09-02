@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { eventsApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,45 +17,43 @@ import {
   XCircle,
   UserCheck,
   Download,
-  Edit
+  Edit,
+  Loader2,
+  FileText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import PunchInButton from '@/components/PunchInButton';
 import JoinRequestManager from '@/components/JoinRequestManager';
 import ReportExporter from '@/components/ReportExporter';
 
-// Mock event data
-const mockEventDetails = {
-  '1': {
-    id: '1',
-    title: 'Team Building Workshop',
-    description: 'A comprehensive team building workshop designed to enhance collaboration, communication, and trust among team members. This interactive session will include various activities and exercises to strengthen team bonds.',
-    startDate: '2024-08-10',
-    endDate: '2024-08-10',
-    startTime: '09:00',
-    endTime: '17:00',
-    location: 'Conference Room A, New York Office',
-    coordinates: { lat: 40.7128, lng: -74.0060 },
-    status: 'upcoming',
-    bannerUrl: '/api/placeholder/600/300',
-    totalInvitees: 25,
-    acceptedInvitees: 18,
-    attendees: 0,
-    createdAt: '2024-07-25',
-    createdBy: 'Admin User',
-    hrs: [
-      { id: '1', name: 'Sarah Johnson', email: 'sarah.johnson@company.com' },
-      { id: '2', name: 'Mike Wilson', email: 'mike.wilson@company.com' }
-    ],
-    invitees: [
-      { id: '3', name: 'John Smith', email: 'john.smith@company.com', status: 'accepted', punchIn: null },
-      { id: '4', name: 'Emily Davis', email: 'emily.davis@company.com', status: 'pending', punchIn: null },
-      { id: '5', name: 'David Brown', email: 'david.brown@company.com', status: 'accepted', punchIn: '09:15' }
-    ],
-    hasUserJoined: false,
-    isUserEligible: true
-  }
-};
+// Event data interface based on API response
+interface EventDetails {
+  id: number;
+  eventName: string;
+  latitude: number;
+  longitude: number;
+  location: string;
+  hrs: string[];
+  invitees: string[];
+  description: string;
+  eventBanner: string;
+  contractPdf: string;
+  fileName: string;
+  userId: string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  updatedAt: string;
+  status: string;
+  puchType: string;
+  requestCount: number;
+  inviteesAndHrs: Array<{
+    id: string;
+    contractPdf: string;
+    fileName: string;
+  }>;
+  message: string;
+}
 
 const EventDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -62,9 +61,67 @@ const EventDetails = () => {
   const { user, hasRole } = useAuth();
   const { toast } = useToast();
   const [isJoinLoading, setIsJoinLoading] = useState(false);
+  const [event, setEvent] = useState<EventDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const event = id ? mockEventDetails[id as keyof typeof mockEventDetails] : null;
   const isAdmin = hasRole('admin');
+
+  // Fetch event details on component mount
+  useEffect(() => {
+    const fetchEventDetails = async () => {
+      if (!id) {
+        setError('No event ID provided');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await eventsApi.getById(id);
+        setEvent(response);
+      } catch (error) {
+        console.error('Error fetching event details:', error);
+        setError('Failed to fetch event details');
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch event details. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEventDetails();
+  }, [id, toast]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading event details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !event) {
+    return (
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-foreground">Event not found</h1>
+        <p className="text-muted-foreground">{error || "The event you're looking for doesn't exist."}</p>
+        <Button onClick={() => navigate('/events')} className="mt-4">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Events
+        </Button>
+      </div>
+    );
+  }
 
   if (!event) {
     return (
@@ -133,20 +190,27 @@ const EventDetails = () => {
         
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-foreground">{event.title}</h1>
+            <h1 className="text-3xl font-bold text-foreground">{event.eventName}</h1>
             <Badge variant={getStatusVariant(event.status)}>
               {event.status}
             </Badge>
           </div>
-          <p className="text-muted-foreground">Created by {event.createdBy}</p>
+          <p className="text-muted-foreground">Created on {new Date(event.createdAt).toLocaleDateString()}</p>
         </div>
 
         {isAdmin && (
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
-              <Edit className="w-4 h-4" />
-              Edit Event
-            </Button>
+            {/* Only show Edit button for upcoming events */}
+            {event.status !== 'completed' && new Date(event.startDate) > new Date() && (
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => navigate(`/events/edit/${event.id}`)}
+              >
+                <Edit className="w-4 h-4" />
+                Edit Event
+              </Button>
+            )}
             {event.status === 'completed' && (
               <Button variant="outline" className="gap-2">
                 <Download className="w-4 h-4" />
@@ -160,220 +224,164 @@ const EventDetails = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Event Banner */}
-          <Card>
-            <CardContent className="p-0">
-              <div className="w-full h-64 bg-gradient-hero rounded-t-lg flex items-center justify-center">
-                <div className="text-center text-white">
-                  <Calendar className="w-12 h-12 mx-auto mb-2 opacity-80" />
-                  <p className="text-sm opacity-80">Event Banner</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Event Information */}
           <Card>
             <CardHeader>
-              <CardTitle>Event Details</CardTitle>
-              <CardDescription>Complete information about this event</CardDescription>
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <CardTitle className="text-2xl">{event.eventName}</CardTitle>
+                  <CardDescription className="text-base">
+                    {event.description}
+                  </CardDescription>
+                </div>
+                <Badge variant={getStatusVariant(event.status)}>
+                  {event.status}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Event Banner */}
+              {event.eventBanner && (
+                <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                  <img 
+                    src={event.eventBanner} 
+                    alt={event.eventName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              
+              {/* Event Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Date</p>
-                      <p className="text-sm text-muted-foreground">
-                        {event.startDate === event.endDate 
-                          ? event.startDate 
-                          : `${event.startDate} - ${event.endDate}`}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Time</p>
-                      <p className="text-sm text-muted-foreground">
-                        {event.startTime} - {event.endTime}
-                      </p>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <span>
+                    {event.startDate === event.endDate 
+                      ? new Date(event.startDate).toLocaleDateString()
+                      : `${new Date(event.startDate).toLocaleDateString()} - ${new Date(event.endDate).toLocaleDateString()}`}
+                  </span>
                 </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">Location</p>
-                      <p className="text-sm text-muted-foreground">{event.location}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Users className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Participants</p>
-                      <p className="text-sm text-muted-foreground">
-                        {event.acceptedInvitees} of {event.totalInvitees} confirmed
-                      </p>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                  <span>{event.location}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span>{event.invitees.length} Invitees</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span>{event.hrs.length} HR Managers</span>
                 </div>
               </div>
 
-              <Separator />
+              {/* Coordinates */}
+              {event.latitude && event.longitude && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Coordinates</p>
+                  <p className="text-sm font-mono">
+                    📍 {event.latitude}, {event.longitude}
+                  </p>
+                </div>
+              )}
 
-              <div>
-                <h3 className="font-medium mb-2">Description</h3>
-                <p className="text-muted-foreground">{event.description}</p>
-              </div>
+              {/* Contract PDF */}
+              {event.contractPdf && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Contract Document</span>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => window.open(event.contractPdf, '_blank')}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      {event.fileName}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Join Request Manager (Admin Only) */}
-          {isAdmin && (
-            <JoinRequestManager
-              eventId={event.id}
-              eventTitle={event.title}
-              requests={[
-                {
-                  id: '1',
-                  userId: '6',
-                  userName: 'Alex Chen',
-                  userEmail: 'alex.chen@company.com',
-                  userJobTitle: 'Data Analyst',
-                  requestedAt: '2024-08-01T10:30:00Z',
-                  status: 'pending',
-                  message: 'I would like to attend this workshop to improve my team collaboration skills.'
-                },
-                {
-                  id: '2',
-                  userId: '7',
-                  userName: 'Maria Garcia',
-                  userEmail: 'maria.garcia@company.com',
-                  userJobTitle: 'Marketing Specialist',
-                  requestedAt: '2024-08-02T14:15:00Z',
-                  status: 'pending'
-                }
-              ]}
-            />
-          )}
-
-          {/* Report Exporter (Admin Only - Completed Events) */}
-          {isAdmin && event.status === 'completed' && (
-            <ReportExporter
-              eventData={{
-                eventId: event.id,
-                eventTitle: event.title,
-                eventDate: event.startDate,
-                eventTime: `${event.startTime} - ${event.endTime}`,
-                eventLocation: event.location,
-                totalInvitees: event.totalInvitees,
-                acceptedInvitees: event.acceptedInvitees,
-                attendees: event.attendees,
-                participants: event.invitees.map(invitee => ({
-                  id: invitee.id,
-                  name: invitee.name,
-                  email: invitee.email,
-                  joinRequestStatus: invitee.status === 'accepted' ? 'accepted' : 
-                                   invitee.status === 'declined' ? 'rejected' : 'pending',
-                  punchInTime: invitee.punchIn || undefined,
-                  punchOutTime: invitee.punchIn ? '17:30' : undefined,
-                  attendanceStatus: invitee.punchIn ? 'joined' : 
-                                  invitee.status === 'accepted' ? 'no-show' : 'pending'
-                }))
-              }}
-            />
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Join/Punch In Card */}
-          {!isAdmin && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Join Event</CardTitle>
-                  <CardDescription>
-                    Request to participate in this event
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {event.hasUserJoined ? (
-                    <div className="text-center space-y-3">
-                      <CheckCircle className="w-12 h-12 text-success mx-auto" />
-                      <div>
-                        <p className="font-medium text-success">Already Joined</p>
-                        <p className="text-sm text-muted-foreground">
-                          You're registered for this event
-                        </p>
-                      </div>
-                    </div>
-                  ) : event.isUserEligible && ['upcoming', 'ongoing'].includes(event.status) ? (
-                    <Button 
-                      className="w-full" 
-                      onClick={handleJoinRequest}
-                      disabled={isJoinLoading}
-                    >
-                      {isJoinLoading ? 'Sending Request...' : 'Ask to Join'}
-                    </Button>
-                  ) : (
-                    <div className="text-center space-y-3">
-                      <XCircle className="w-12 h-12 text-muted-foreground mx-auto" />
-                      <div>
-                        <p className="font-medium text-muted-foreground">Not Eligible</p>
-                        <p className="text-sm text-muted-foreground">
-                          You cannot join this event
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Punch In Component */}
-              <PunchInButton
-                eventId={event.id}
-                eventTitle={event.title}
-                eventLocation={event.location}
-                eventCoordinates={event.coordinates}
-                isActive={event.status === 'ongoing'}
-                hasJoined={event.hasUserJoined}
-              />
-            </>
-          )}
-
-          {/* Event HRs */}
+          {/* Invitees and HRs List */}
           <Card>
             <CardHeader>
-              <CardTitle>Event Managers</CardTitle>
-              <CardDescription>HR personnel managing this event</CardDescription>
+              <CardTitle>Participants ({event.inviteesAndHrs.length})</CardTitle>
+              <CardDescription>All event participants including invitees and HR managers</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {event.hrs.map((hr) => (
-                  <div key={hr.id} className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                        {hr.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium text-sm">{hr.name}</p>
-                      <p className="text-xs text-muted-foreground">{hr.email}</p>
+                {event.inviteesAndHrs.map((participant) => (
+                  <div key={participant.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                          {participant.id.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-sm">Participant {participant.id.substring(0, 8)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {event.hrs.includes(participant.id) ? 'HR Manager' : 'Invitee'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {participant.contractPdf && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => window.open(participant.contractPdf, '_blank')}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          {participant.fileName}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
+        </div>
 
-          {/* Event Stats */}
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Event Info Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Event Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Event Type</span>
+                <Badge variant="outline">{event.puchType}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Status</span>
+                <Badge variant={getStatusVariant(event.status)}>{event.status}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Join Requests</span>
+                <span className="font-medium">{event.requestCount}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Created</span>
+                <span className="text-sm">{new Date(event.createdAt).toLocaleDateString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Last Updated</span>
+                <span className="text-sm">{new Date(event.updatedAt).toLocaleDateString()}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Event Statistics */}
           <Card>
             <CardHeader>
               <CardTitle>Event Statistics</CardTitle>
@@ -382,28 +390,42 @@ const EventDetails = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Total Invitees</span>
-                  <span className="font-medium">{event.totalInvitees}</span>
+                  <span className="font-medium">{event.invitees.length}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Accepted</span>
-                  <span className="font-medium text-success">{event.acceptedInvitees}</span>
+                  <span className="text-sm text-muted-foreground">HR Managers</span>
+                  <span className="font-medium text-success">{event.hrs.length}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Attended</span>
-                  <span className="font-medium text-warning">{event.attendees}</span>
+                  <span className="text-sm text-muted-foreground">Total Participants</span>
+                  <span className="font-medium text-warning">{event.inviteesAndHrs.length}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Attendance Rate</span>
-                  <span className="font-medium">
-                    {event.acceptedInvitees > 0 
-                      ? Math.round((event.attendees / event.acceptedInvitees) * 100)
-                      : 0}%
-                  </span>
+                  <span className="text-sm text-muted-foreground">Join Requests</span>
+                  <span className="font-medium">{event.requestCount}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Quick Actions */}
+          {user?.role === 'employee' && event.status === 'AskToJoin' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Join Event</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  className="w-full" 
+                  onClick={handleJoinRequest}
+                  disabled={isJoinLoading}
+                >
+                  {isJoinLoading ? 'Sending Request...' : 'Request to Join'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

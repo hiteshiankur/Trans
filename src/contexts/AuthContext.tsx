@@ -1,36 +1,46 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { authApi, setAuthToken, removeAuthToken, ApiError } from '@/lib/api';
 
-export type UserRole = 'admin' | 'employee' | 'hr';
+export type UserRole = 'superAdmin' | 'admin' | 'employee' | 'hr';
 
 export interface User {
   id: string;
-  name: string;
+  fullName: string | null;
   email: string;
+  phoneNumber: string | null;
+  profileImageUrl: string | null;
+  jobTitle: string | null;
+  workLocation: string | null;
+  dateOfJoining: string | null;
   role: UserRole;
-  phone?: string;
-  address?: string;
-  jobTitle?: string;
-  workLocation?: string;
-  dateOfJoining?: string;
-  isActive?: boolean;
+  otp: string | null;
+  isverified: boolean;
+  isActive: boolean;
+  nationalIdNumber: string | null;
+  passportNumber: string | null;
+  stcPayNumber: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (userData: RegisterData) => Promise<void>;
+  login: (email: string, password?: string, otp?: string) => Promise<void>;
+  register: (userData: RegisterData) => Promise<{ needsOtpVerification: boolean; email?: string }>;
+  verifyOtp: (email: string, otp: string) => Promise<void>;
+  requestOtp: (email: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   hasRole: (role: UserRole) => boolean;
+  refreshUser: () => Promise<void>;
 }
 
 export interface RegisterData {
-  name: string;
+  fullName: string;
   email: string;
   password: string;
-  phone?: string;
-  address?: string;
+  phoneNumber?: string;
   jobTitle?: string;
   workLocation?: string;
 }
@@ -54,71 +64,110 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem('trans_app_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        localStorage.removeItem('trans_app_user');
+    // Check for existing session on mount
+    const checkAuth = async () => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        try {
+          const response = await authApi.getMe();
+          setUser(response.userDetails);
+        } catch (error) {
+          console.error('Error checking auth:', error);
+          removeAuthToken();
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = async (email: string, password?: string, otp?: string): Promise<void> => {
+    setLoading(true);
     try {
-      // Mock authentication - in real app, this would be an API call
-      if (email === 'admin@transapp.com' && password === 'admin123') {
-        const adminUser: User = {
-          id: '1',
-          name: 'Admin User',
-          email: 'admin@transapp.com',
-          role: 'admin',
-          isActive: true
-        };
-        setUser(adminUser);
-        localStorage.setItem('trans_app_user', JSON.stringify(adminUser));
-      } else if (email === 'employee@transapp.com' && password === 'employee123') {
-        const employeeUser: User = {
-          id: '2',
-          name: 'John Employee',
-          email: 'employee@transapp.com',
-          role: 'employee',
-          phone: '+1234567890',
-          jobTitle: 'Software Developer',
-          workLocation: 'New York Office',
-          isActive: true
-        };
-        setUser(employeeUser);
-        localStorage.setItem('trans_app_user', JSON.stringify(employeeUser));
-      } else {
-        throw new Error('Invalid credentials');
+      const response = await authApi.login(email, password, otp);
+      // If OTP is provided, we expect a full auth response with token and userInfo
+      if (otp) {
+        const authResponse = response as { userInfo: any; message: string; isFirstTime: boolean; token?: string };
+        if (authResponse.token) {
+          setAuthToken(authResponse.token);
+          setUser(authResponse.userInfo);
+        }
+      }
+      // If no OTP, this just sends the OTP email (response will be { message: string })
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new Error(error.message);
+      }
+      throw new Error('Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (userData: RegisterData): Promise<{ needsOtpVerification: boolean; email?: string }> => {
+    setLoading(true);
+    try {
+      await authApi.register(userData);
+      // After successful registration, send OTP for verification
+      await authApi.requestOtp(userData.email);
+      return { needsOtpVerification: true, email: userData.email };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new Error(error.message);
+      }
+      throw new Error('Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOtp = async (email: string, otp: string): Promise<void> => {
+    setLoading(true);
+    try {
+      const response = await authApi.verifyOtp(email, otp);
+      console.log("--response--", response);
+      
+      if (response.token) {
+        setAuthToken(response.token);
+        setUser(response.user);
       }
     } catch (error) {
-      throw error;
+      if (error instanceof ApiError) {
+        throw new Error(error.message);
+      }
+      throw new Error('OTP verification failed.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const register = async (userData: RegisterData): Promise<void> => {
+  const requestOtp = async (email: string): Promise<void> => {
     try {
-      // Mock registration - in real app, this would be an API call
-      const newUser: User = {
-        id: Date.now().toString(),
-        ...userData,
-        role: 'employee',
-        isActive: true
-      };
-      setUser(newUser);
-      localStorage.setItem('trans_app_user', JSON.stringify(newUser));
+      await authApi.requestOtp(email);
     } catch (error) {
-      throw error;
+      if (error instanceof ApiError) {
+        throw new Error(error.message);
+      }
+      throw new Error('Failed to send OTP.');
     }
   };
 
-  const logout = () => {
+  const refreshUser = async (): Promise<void> => {
+    try {
+      const response = await authApi.getMe();
+      setUser(response.userDetails);
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+      logout();
+    }
+  };
+
+  const logout = (): void => {
     setUser(null);
-    localStorage.removeItem('trans_app_user');
+    removeAuthToken();
+    // Call logout API in background
+    authApi.logout().catch(console.error);
   };
 
   const hasRole = (role: UserRole): boolean => {
@@ -130,7 +179,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     login,
     register,
+    verifyOtp,
+    requestOtp,
     logout,
+    refreshUser,
     isAuthenticated: !!user,
     hasRole
   };

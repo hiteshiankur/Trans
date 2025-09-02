@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
@@ -20,6 +21,29 @@ import {
   Trash2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { employeesApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+interface Employee {
+  id: string;
+  fullName: string | null;
+  email: string;
+  phoneNumber: string | null;
+  profileImageUrl: string | null;
+  jobTitle: string | null;
+  workLocation: string | null;
+  dateOfJoining: string | null;
+  role: string;
+  otp: string | null;
+  isverified: boolean;
+  isActive: boolean;
+  nationalIdNumber: string | null;
+  passportNumber: string | null;
+  stcPayNumber: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // Mock employee data
 const mockEmployees = [
@@ -59,24 +83,51 @@ const mockEmployees = [
 ];
 
 const Employees = () => {
-  const [employees, setEmployees] = useState(mockEmployees);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [newEmployee, setNewEmployee] = useState({
-    name: '',
+    employeeName: '',
     email: '',
+    role: 'employee',
     phone: '',
-    address: '',
+    phoneNumber: '',
     jobTitle: '',
     workLocation: '',
     dateOfJoining: ''
   });
+  const [profileImage, setProfileImage] = useState<File | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'superAdmin';
+
+  // Fetch employees on component mount
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setLoading(true);
+        const response = await employeesApi.getAllEmployees('employee');
+        setEmployees(response.allEmployeeList || []);
+      } catch (error) {
+        console.error('Error fetching employees:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch employees',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchEmployees();
+  }, [toast]);
 
   const filteredEmployees = employees.filter(employee =>
-    employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (employee.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.jobTitle.toLowerCase().includes(searchTerm.toLowerCase())
+    (employee.jobTitle || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,41 +137,87 @@ const Employees = () => {
     }));
   };
 
-  const handleAddEmployee = (e: React.FormEvent) => {
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const employee = {
-      id: Date.now().toString(),
-      ...newEmployee,
-      isActive: true
-    };
-
-    setEmployees(prev => [...prev, employee]);
-    setNewEmployee({
-      name: '',
-      email: '',
-      phone: '',
-      address: '',
-      jobTitle: '',
-      workLocation: '',
-      dateOfJoining: ''
-    });
-    setIsAddDialogOpen(false);
-    
-    toast({
-      title: "Employee Added",
-      description: `${employee.name} has been successfully added.`,
-    });
+    try {
+      setLoading(true);
+      
+      // Create FormData to handle file upload
+      const formData = new FormData();
+      formData.append('employeeName', newEmployee.employeeName);
+      formData.append('email', newEmployee.email);
+      formData.append('phoneNumber', newEmployee.phoneNumber || newEmployee.phone);
+      formData.append('jobTitle', newEmployee.jobTitle);
+      formData.append('workLocation', newEmployee.workLocation);
+      formData.append('dateOfJoining', newEmployee.dateOfJoining);
+      formData.append('role', newEmployee.role);
+      
+      if (profileImage) {
+        formData.append('profileImage', profileImage);
+      }
+      
+      const response = await employeesApi.addNewEmployee(formData);
+      
+      // Refresh the employee list
+      const updatedResponse = await employeesApi.getAllEmployees('employee');
+      setEmployees(updatedResponse.allEmployeeList || []);
+      
+      // Reset form
+      setNewEmployee({
+        employeeName: '',
+        email: '',
+        role: 'employee',
+        phone: '',
+        phoneNumber: '',
+        jobTitle: '',
+        workLocation: '',
+        dateOfJoining: ''
+      });
+      setProfileImage(null);
+      setIsAddDialogOpen(false);
+      
+      const roleText = newEmployee.role === 'admin' ? 'Admin' : 'Employee';
+      toast({
+        title: `${roleText} Added`,
+        description: `${response.employeeInfo?.fullName || newEmployee.employeeName} has been successfully added as ${roleText.toLowerCase()}.`,
+      });
+    } catch (error: any) {
+      console.error('Error creating employee:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || 'Failed to create employee',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteEmployee = (id: string) => {
-    setEmployees(prev => prev.filter(emp => emp.id !== id));
-    toast({
-      title: "Employee Removed",
-      description: "Employee has been successfully removed.",
-    });
+  const handleDeleteEmployee = async (id: string, employeeName: string) => {
+    try {
+      setLoading(true);
+      await employeesApi.delete(id);
+      
+      // Remove employee from local state
+      setEmployees(prev => prev.filter(emp => emp.id !== id));
+      
+      toast({
+        title: "Employee Deleted",
+        description: `${employeeName} has been successfully removed from the system.`,
+      });
+    } catch (error: any) {
+      console.error('Error deleting employee:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || 'Failed to delete employee. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
-
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -133,26 +230,26 @@ const Employees = () => {
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="w-4 h-4" />
-              Add Employee
+              {isSuperAdmin ? 'Add User' : 'Add Employee'}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add New Employee</DialogTitle>
+              <DialogTitle>{isSuperAdmin ? 'Add New User' : 'Add New Employee'}</DialogTitle>
               <DialogDescription>
-                Fill in the employee details below.
+                {isSuperAdmin ? 'Fill in the user details below. You can create both admin and employee users.' : 'Fill in the employee details below.'}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleAddEmployee} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name *</Label>
+                <Label htmlFor="employeeName">Full Name *</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="name"
-                    name="name"
+                    id="employeeName"
+                    name="employeeName"
                     placeholder="Enter full name"
-                    value={newEmployee.name}
+                    value={newEmployee.employeeName}
                     onChange={handleInputChange}
                     className="pl-10"
                     required
@@ -177,6 +274,38 @@ const Employees = () => {
                 </div>
               </div>
 
+
+
+              {isSuperAdmin && (
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role *</Label>
+                  <Select
+                    value={newEmployee.role}
+                    onValueChange={(value) => setNewEmployee(prev => ({ ...prev, role: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="employee">Employee</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="profileImage">Profile Image</Label>
+                <Input
+                  id="profileImage"
+                  name="profileImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setProfileImage(e.target.files?.[0] || null)}
+                  className="cursor-pointer"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
                 <div className="relative">
@@ -192,20 +321,7 @@ const Employees = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="address"
-                    name="address"
-                    placeholder="Enter address"
-                    value={newEmployee.address}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="jobTitle">Job Title</Label>
@@ -289,12 +405,12 @@ const Employees = () => {
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
                     <AvatarFallback className="bg-primary text-primary-foreground">
-                      {employee.name.split(' ').map(n => n[0]).join('')}
+                      {(employee.fullName || employee.email).split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle className="text-lg">{employee.name}</CardTitle>
-                    <CardDescription>{employee.jobTitle}</CardDescription>
+                    <CardTitle className="text-lg">{employee.fullName || employee.email}</CardTitle>
+                    <CardDescription>{employee.jobTitle || 'No job title'}</CardDescription>
                   </div>
                 </div>
                 <Badge variant={employee.isActive ? 'default' : 'secondary'}>
@@ -306,12 +422,12 @@ const Employees = () => {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <Mail className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">{employee.email}</span>
+                  <span className="text-xs text-muted-foreground">{employee.email}</span>
                 </div>
-                {employee.phone && (
+                {employee.phoneNumber && (
                   <div className="flex items-center gap-2 text-sm">
                     <Phone className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">{employee.phone}</span>
+                    <span className="text-muted-foreground">{employee.phoneNumber}</span>
                   </div>
                 )}
                 {employee.workLocation && (
@@ -335,15 +451,37 @@ const Employees = () => {
                   <Edit className="w-4 h-4" />
                   Edit
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-2 text-destructive hover:text-destructive"
-                  onClick={() => handleDeleteEmployee(employee.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Remove
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-2 text-destructive hover:text-destructive"
+                      disabled={loading}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Employee</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete <strong>{employee.fullName || employee.email}</strong>? 
+                        This action cannot be undone and will permanently remove the employee from the system.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={() => handleDeleteEmployee(employee.id, employee.fullName || employee.email)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete Employee
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </CardContent>
           </Card>

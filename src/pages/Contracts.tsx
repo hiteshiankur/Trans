@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,84 +11,96 @@ import {
   Eye,
   Calendar,
   Clock,
-  MapPin
+  MapPin,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
+import { invitationsApi } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
-// Mock contracts data
-const mockContracts = [
-  {
-    id: '1',
-    eventId: '1',
-    eventTitle: 'Team Building Workshop',
-    eventDate: '2024-08-10',
-    eventTime: '09:00 AM',
-    eventLocation: 'Conference Room A, New York Office',
-    fileName: 'team_building_contract.pdf',
-    fileSize: '2.4 MB',
-    uploadedAt: '2024-07-25',
-    fileType: 'PDF'
-  },
-  {
-    id: '2',
-    eventId: '2',
-    eventTitle: 'Quarterly Review Meeting',
-    eventDate: '2024-08-08',
-    eventTime: '02:00 PM',
-    eventLocation: 'Main Auditorium, New York Office',
-    fileName: 'q3_review_agreement.doc',
-    fileSize: '1.8 MB',
-    uploadedAt: '2024-07-20',
-    fileType: 'DOC'
-  },
-  {
-    id: '3',
-    eventId: '3',
-    eventTitle: 'Product Launch Event',
-    eventDate: '2024-08-15',
-    eventTime: '10:00 AM',
-    eventLocation: 'Grand Ballroom, Marriott Hotel',
-    fileName: 'product_launch_nda.pdf',
-    fileSize: '3.1 MB',
-    uploadedAt: '2024-07-30',
-    fileType: 'PDF'
-  },
-  {
-    id: '4',
-    eventId: '4',
-    eventTitle: 'Annual Conference 2024',
-    eventDate: '2024-09-15',
-    eventTime: '09:00 AM',
-    eventLocation: 'Convention Center, Las Vegas',
-    fileName: 'conference_participation_agreement.pdf',
-    fileSize: '4.2 MB',
-    uploadedAt: '2024-08-01',
-    fileType: 'PDF'
-  }
-];
+// Type for contract data from API
+interface Contract {
+  id: number;
+  eventId: number;
+  employeeId: string;
+  status: string;
+  contractPdf: string;
+  event: {
+    id: number;
+    eventName: string;
+    startDate: string;
+    endDate: string;
+    location: string;
+  };
+}
 
 const Contracts = () => {
-  const [contracts, setContracts] = useState(mockContracts);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Fetch contracts on component mount
+  useEffect(() => {
+    const fetchContracts = async () => {
+      try {
+        setLoading(true);
+        const response = await invitationsApi.getAllMyInvitationAcceptedContracts();
+        setContracts(response.allMyContracts);
+      } catch (error) {
+        console.error('Error fetching contracts:', error);
+        setError('Failed to load contracts. Please try again.');
+        toast({
+          title: 'Error',
+          description: 'Failed to load contracts. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchContracts();
+  }, [toast]);
+
   const filteredContracts = contracts.filter(contract =>
-    contract.eventTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contract.fileName.toLowerCase().includes(searchTerm.toLowerCase())
+    contract.event.eventName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    contract.contractPdf.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleDownload = (contract: typeof mockContracts[0]) => {
-    // In a real app, this would trigger file download
-    console.log(`Downloading ${contract.fileName}`);
-    
-    // Create a dummy download for demo purposes
-    const link = document.createElement('a');
-    link.href = '#';
-    link.download = contract.fileName;
-    link.click();
+  const handleDownload = (contract: Contract) => {
+    try {
+      const link = document.createElement('a');
+      link.href = contract.contractPdf;
+      // Extract filename from URL or use a default name
+      const fileName = contract.contractPdf.split('/').pop() || `contract-${contract.id}.pdf`;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading contract:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download contract. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleView = (contract: typeof mockContracts[0]) => {
-    // In a real app, this would open the file in a modal or new tab
-    console.log(`Viewing ${contract.fileName}`);
+  const handleView = (contract: Contract) => {
+    window.open(contract.contractPdf, '_blank', 'noopener,noreferrer');
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   const getFileTypeColor = (fileType: string) => {
@@ -115,6 +128,32 @@ const Contracts = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading contracts...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-red-600">
+        <AlertCircle className="h-10 w-10 mb-2" />
+        <p className="text-lg font-medium">Failed to load contracts</p>
+        <p className="text-sm text-muted-foreground mt-1">{error}</p>
+        <Button 
+          variant="outline" 
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -136,79 +175,69 @@ const Contracts = () => {
       {/* Contracts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {filteredContracts.map((contract) => {
-          const eventStatus = getEventStatus(contract.eventDate);
+          const fileName = contract.contractPdf.split('/').pop() || `contract-${contract.id}.pdf`;
+          const fileType = fileName.split('.').pop()?.toUpperCase() || 'PDF';
+          const eventDate = formatDate(contract.event.startDate);
           
           return (
-            <Card key={contract.id} className="hover:shadow-custom-md transition-shadow duration-200">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{contract.eventTitle}</CardTitle>
-                    <CardDescription className="mt-1">
-                      Contract for event participation
-                    </CardDescription>
-                  </div>
-                  <Badge variant={eventStatus.variant}>
-                    {eventStatus.label}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Event Details */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="w-4 h-4" />
-                    <span>{contract.eventDate}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    <span>{contract.eventTime}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="w-4 h-4" />
-                    <span>{contract.eventLocation}</span>
-                  </div>
-                </div>
-
-                {/* File Information */}
-                <div className="p-4 bg-muted rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-card rounded-lg flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-muted-foreground" />
+            <Card key={contract.id} className="hover:shadow-md transition-shadow">
+              <div className="md:flex">
+                <div className="p-6 flex-1">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-xl">{contract.event.eventName}</CardTitle>
+                      <CardDescription className="mt-1">
+                        Contract ID: {contract.id}
+                      </CardDescription>
                     </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{contract.fileName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {contract.fileSize} • Uploaded {new Date(contract.uploadedAt).toLocaleDateString()}
-                      </div>
+                    <Badge 
+                      className="ml-2" 
+                      variant={contract.status === 'Accepted' ? 'default' : 'outline'}
+                    >
+                      {contract.status}
+                    </Badge>
+                  </div>
+                  
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span>{eventDate}</span>
                     </div>
-                    <div className={`px-2 py-1 rounded text-xs font-medium ${getFileTypeColor(contract.fileType)}`}>
-                      {contract.fileType}
+                    <div className="flex items-center">
+                      <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span className="truncate">{contract.event.location}</span>
                     </div>
                   </div>
+                  
+                  <div className="mt-4 flex items-center text-sm text-muted-foreground">
+                    <FileText className="h-4 w-4 mr-2" />
+                    <span className="truncate">{fileName}</span>
+                    <span className="mx-2">•</span>
+                    <span>{fileType}</span>
+                  </div>
                 </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-4 border-t">
+                
+                <div className="border-t md:border-t-0 md:border-l p-4 flex flex-col justify-center space-y-2 bg-muted/30">
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="flex-1 gap-2"
+                    className="w-full"
                     onClick={() => handleView(contract)}
                   >
-                    <Eye className="w-4 h-4" />
+                    <Eye className="h-4 w-4 mr-2" />
                     View
                   </Button>
                   <Button 
+                    variant="default" 
                     size="sm" 
-                    className="flex-1 gap-2"
+                    className="w-full"
                     onClick={() => handleDownload(contract)}
                   >
-                    <Download className="w-4 h-4" />
+                    <Download className="h-4 w-4 mr-2" />
                     Download
                   </Button>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           );
         })}
