@@ -851,6 +851,209 @@ export const getCurrentLocation = (): Promise<{
   });
 };
 
+// About Content API
+export const aboutContentApi = {
+  // Get all about content (public)
+  getAboutContent: async () => {
+    return apiFetch<{
+      aboutContent?: any[];
+      aboutPage?: any;
+      message: string;
+    }>('/about-content');
+  },
+
+  // Get specific section content (admin)
+  getSectionContent: async (sectionType: string) => {
+    return apiFetch<{
+      section: any;
+      message: string;
+    }>(`/admin/about-content/${sectionType}`);
+  },
+
+  // Update Hero Section
+  updateHeroSection: async (data: {
+    subtitle: string;
+    mainTitle: string;
+    description: string;
+    buttonText: string;
+    heroBackgroundImage?: File;
+  }) => {
+    const formData = new FormData();
+    formData.append('subtitle', data.subtitle);
+    formData.append('mainTitle', data.mainTitle);
+    formData.append('description', data.description);
+    formData.append('buttonText', data.buttonText);
+    
+    if (data.heroBackgroundImage) {
+      formData.append('heroBackgroundImage', data.heroBackgroundImage);
+    }
+
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/admin/about-content/hero`, {
+      method: 'PUT',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        'lang': 'en'
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(response.status, errorData.message || 'Failed to update hero section', errorData.errors);
+    }
+
+    return response.json();
+  },
+
+  // Update Features Section
+  updateFeaturesSection: async (data: {
+    features: Array<{
+      featureTitle: string;
+      featureDescription: string;
+    }>;
+    sectionImage?: File;
+    featureIcons?: File[];
+  }) => {
+    const formData = new FormData();
+    
+    // Add features data
+    data.features.forEach((feature, index) => {
+      formData.append(`features[${index}][featureTitle]`, feature.featureTitle);
+      formData.append(`features[${index}][featureDescription]`, feature.featureDescription);
+    });
+
+    if (data.sectionImage) {
+      formData.append('sectionImage', data.sectionImage);
+    }
+
+    if (data.featureIcons) {
+      data.featureIcons.forEach((icon) => {
+        formData.append('featureIcon', icon);
+      });
+    }
+
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/admin/about-content/features`, {
+      method: 'PUT',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        'lang': 'en'
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(response.status, errorData.message || 'Failed to update features section', errorData.errors);
+    }
+
+    return response.json();
+  },
+
+  // Update Mission Section
+  updateMissionSection: async (data: {
+    missionTitle: string;
+    missionDescription: string;
+    missionIcon?: File;
+  }) => {
+    const formData = new FormData();
+    formData.append('missionTitle', data.missionTitle);
+    formData.append('missionDescription', data.missionDescription);
+    
+    if (data.missionIcon) {
+      formData.append('missionIcon', data.missionIcon);
+    }
+
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/admin/about-content/mission`, {
+      method: 'PUT',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        'lang': 'en'
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(response.status, errorData.message || 'Failed to update mission section', errorData.errors);
+    }
+
+    return response.json();
+  },
+
+  // Update Vision Section
+  updateVisionSection: async (data: {
+    visionTitle: string;
+    visionDescription: string;
+    visionIcon?: File;
+  }) => {
+    const formData = new FormData();
+    formData.append('visionTitle', data.visionTitle);
+    formData.append('visionDescription', data.visionDescription);
+    
+    if (data.visionIcon) {
+      formData.append('visionIcon', data.visionIcon);
+    }
+
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/admin/about-content/vision`, {
+      method: 'PUT',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        'lang': 'en'
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(response.status, errorData.message || 'Failed to update vision section', errorData.errors);
+    }
+
+    return response.json();
+  },
+
+  // Update Objectives Section
+  updateObjectivesSection: async (data: {
+    objectivesTitle: string;
+    objectives: Array<{
+      objectiveText: string;
+    }>;
+    objectivesIcon?: File;
+  }) => {
+    const formData = new FormData();
+    formData.append('objectivesTitle', data.objectivesTitle);
+    
+    // Add objectives data
+    data.objectives.forEach((objective, index) => {
+      formData.append(`objectives[${index}][objectiveText]`, objective.objectiveText);
+    });
+    
+    if (data.objectivesIcon) {
+      formData.append('objectivesIcon', data.objectivesIcon);
+    }
+
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/admin/about-content/objectives`, {
+      method: 'PUT',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        'lang': 'en'
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(response.status, errorData.message || 'Failed to update objectives section', errorData.errors);
+    }
+
+    return response.json();
+  },
+};
+
 // Admin API
 export const adminApi = {
   getDashboardData: async () => {

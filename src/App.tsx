@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Layout from "@/components/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Pages
 import Home from "@/pages/Home";
@@ -53,246 +54,256 @@ import ServicesFleetManagement from "@/pages/admin/services/FleetManagement";
 import ContactHeroSection from "@/pages/admin/contact/HeroSection";
 import ContactInfo from "@/pages/admin/contact/ContactInfo";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    },
+  },
+});
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<LandingHome />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/verify-otp" element={<VerifyOtp />} />
-            
-            {/* Landing Page routes */}
-            <Route path="/about" element={<LandingAbout />} />
-            <Route path="/services" element={<LandingServices />} />
-            <Route path="/contact" element={<LandingContact />} />
-            
-            {/* Protected routes */}
-            <Route path="/home" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Home />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/employees" element={
-              <ProtectedRoute requiredRoles={['admin', 'superAdmin']}>
-                <Layout>
-                  <Employees />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/events" element={
-              <ProtectedRoute requiredRoles={['admin', 'superAdmin']}>
-                <Layout>
-                  <Events />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/events/create" element={
-              <ProtectedRoute requiredRoles={['admin', 'superAdmin']}>
-                <Layout>
-                  <CreateEvent />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/events/edit/:id" element={
-              <ProtectedRoute requiredRoles={['admin', 'superAdmin']}>
-                <Layout>
-                  <CreateEvent />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/events/:id" element={
-              <ProtectedRoute>
-                <Layout>
-                  <EventDetails />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/invitations" element={
-              <ProtectedRoute requiredRoles={['employee', 'hr']}>
-                <Layout>
-                  <Invitations />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/invitations/:id" element={
-              <ProtectedRoute requiredRoles={['employee', 'hr']}>
-                <Layout>
-                  <InvitationDetails />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/contracts" element={
-              <ProtectedRoute requiredRoles={['employee', 'hr']}>
-                <Layout>
-                  <Contracts />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Profile />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin Landing Page Management Routes */}
-            <Route path="/admin/landing/hero" element={
-              <ProtectedRoute>
-                <Layout>
-                  <HeroSection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin/landing/services" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ServicesSection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin/landing/safety" element={
-              <ProtectedRoute>
-                <Layout>
-                  <SafetySection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin/landing/stats" element={
-              <ProtectedRoute>
-                <Layout>
-                  <StatsSection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin/landing/cta" element={
-              <ProtectedRoute>
-                <Layout>
-                  <CTASection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin About Page Management Routes */}
-            <Route path="/admin/about/hero" element={
-              <ProtectedRoute>
-                <Layout>
-                  <AboutHeroSection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/about/features" element={
-              <ProtectedRoute>
-                <Layout>
-                  <AboutFeaturesSection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/about/mission" element={
-              <ProtectedRoute>
-                <Layout>
-                  <AboutMissionSection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/about/vision" element={
-              <ProtectedRoute>
-                <Layout>
-                  <AboutVisionSection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/about/objectives" element={
-              <ProtectedRoute>
-                <Layout>
-                  <AboutObjectivesSection />
-                </Layout>
-              </ProtectedRoute>
-            } />
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<LandingHome />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/verify-otp" element={<VerifyOtp />} />
+              
+              {/* Landing Page routes */}
+              <Route path="/about" element={<LandingAbout />} />
+              <Route path="/services" element={<LandingServices />} />
+              <Route path="/contact" element={<LandingContact />} />
+              
+              {/* Protected routes */}
+              <Route path="/home" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Home />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/employees" element={
+                <ProtectedRoute requiredRoles={['admin', 'superAdmin']}>
+                  <Layout>
+                    <Employees />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/events" element={
+                <ProtectedRoute requiredRoles={['admin', 'superAdmin']}>
+                  <Layout>
+                    <Events />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/events/create" element={
+                <ProtectedRoute requiredRoles={['admin', 'superAdmin']}>
+                  <Layout>
+                    <CreateEvent />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/events/edit/:id" element={
+                <ProtectedRoute requiredRoles={['admin', 'superAdmin']}>
+                  <Layout>
+                    <CreateEvent />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/events/:id" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <EventDetails />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/invitations" element={
+                <ProtectedRoute requiredRoles={['employee', 'hr']}>
+                  <Layout>
+                    <Invitations />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/invitations/:id" element={
+                <ProtectedRoute requiredRoles={['employee', 'hr']}>
+                  <Layout>
+                    <InvitationDetails />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/contracts" element={
+                <ProtectedRoute requiredRoles={['employee', 'hr']}>
+                  <Layout>
+                    <Contracts />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Profile />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              {/* Admin Landing Page Management Routes */}
+              <Route path="/admin/landing/hero" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <HeroSection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin/landing/services" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ServicesSection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin/landing/safety" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <SafetySection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin/landing/stats" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <StatsSection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin/landing/cta" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <CTASection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              {/* Admin About Page Management Routes */}
+              <Route path="/admin/about/hero" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AboutHeroSection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/about/features" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AboutFeaturesSection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/about/mission" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AboutMissionSection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/about/vision" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AboutVisionSection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/about/objectives" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AboutObjectivesSection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
 
-            {/* Admin Services Page Management Routes */}
-            <Route path="/admin/services/hero" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ServicesHeroSection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/services/transport-solutions" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ServicesTransportSolutions />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/services/data-analysis" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ServicesDataAnalysis />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/services/hardware-logistics" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ServicesHardwareLogistics />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/services/fleet-management" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ServicesFleetManagement />
-                </Layout>
-              </ProtectedRoute>
-            } />
+              {/* Admin Services Page Management Routes */}
+              <Route path="/admin/services/hero" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ServicesHeroSection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/services/transport-solutions" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ServicesTransportSolutions />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/services/data-analysis" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ServicesDataAnalysis />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/services/hardware-logistics" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ServicesHardwareLogistics />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/services/fleet-management" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ServicesFleetManagement />
+                  </Layout>
+                </ProtectedRoute>
+              } />
 
-            {/* Admin Contact Page Management Routes */}
-            <Route path="/admin/contact/hero" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ContactHeroSection />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/contact/info" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ContactInfo />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            {/* Fallback routes */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+              {/* Admin Contact Page Management Routes */}
+              <Route path="/admin/contact/hero" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ContactHeroSection />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/contact/info" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ContactInfo />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              {/* Fallback routes */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

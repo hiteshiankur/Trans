@@ -1,55 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { Plus, Trash2 } from 'lucide-react';
+import { aboutContentApi } from '@/lib/api';
+import { toast } from 'sonner';
 
 interface Feature {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
+  featureTitle: string;
+  featureDescription: string;
+  featureIcon?: File | null;
 }
 
 const AboutFeaturesSection = () => {
   const [formData, setFormData] = useState({
-    sectionImage: '/src/assets/images/parcelboy.svg',
-    features: [
-      {
-        id: '1',
-        title: 'Bespoke Solutions Every Time',
-        description: 'We\'ve never had a templated approach. Instead, we collaborate closely with our partners to devise unique project plans that optimize our clients\' capabilities and match their working methods.',
-        icon: '/src/assets/images/bespoke.svg'
-      },
-      {
-        id: '2',
-        title: 'Single-Provider Efficiencies',
-        description: 'It takes time and money to commission, brief and manage multiple suppliers. We relieve that burden, offering you radically reduced administrative and operational overhead.',
-        icon: '/src/assets/images/single-provider.svg'
-      },
-      {
-        id: '3',
-        title: 'World Class Technology',
-        description: 'Because we work uniquely, we keep working with the most advanced solutions to achieve the intended outcomes.',
-        icon: '/src/assets/images/technology.svg'
-      },
-      {
-        id: '4',
-        title: 'It\'s a matter of ethics',
-        description: 'Good business relies on trust, openness, and transparency - and our hiring policies reflect this. We choose our team members based on their creativity, disciplinary and achievements.',
-        icon: '/src/assets/images/ethics.svg'
-      }
-    ] as Feature[]
+    sectionImage: null as File | null,
+    features: [] as Feature[]
   });
+  const [sectionImagePreview, setSectionImagePreview] = useState<string>('');
+  const [featureIconPreviews, setFeatureIconPreviews] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  // Fetch existing data on component mount
+  useEffect(() => {
+    const fetchFeaturesData = async () => {
+      try {
+        const response = await aboutContentApi.getSectionContent('about-features');
+        console.log('Features API Response:', response);
+        if (response.section) {
+          const content = response.section.contentEn || response.section;
+          console.log('Features Content:', content);
+          
+          setFormData({
+            sectionImage: null,
+            features: content.features || []
+          });
+          
+          if (content.sectionImage) {
+            setSectionImagePreview(content.sectionImage);
+          }
+          
+          // Set feature icon previews
+          if (content.features) {
+            const iconPreviews = content.features.map((feature: any) => feature.featureIcon || '');
+            setFeatureIconPreviews(iconPreviews);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching features data:', error);
+        toast.error('Failed to load features section data');
+      } finally {
+        setFetchLoading(false);
+      }
+    };
+
+    fetchFeaturesData();
+  }, []);
+
+  const handleSectionImageChange = (file: File | null, preview: string) => {
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      sectionImage: file
     }));
+    setSectionImagePreview(preview);
   };
 
   const handleFeatureChange = (index: number, field: keyof Feature, value: string) => {
@@ -61,26 +77,37 @@ const AboutFeaturesSection = () => {
     }));
   };
 
-  const updateFeature = (index: number, field: keyof Feature, value: string) => {
+  const handleFeatureIconChange = (index: number, file: File | null, preview: string) => {
     setFormData(prev => ({
       ...prev,
       features: prev.features.map((feature, i) => 
-        i === index ? { ...feature, [field]: value } : feature
+        i === index ? { ...feature, featureIcon: file } : feature
       )
     }));
+    
+    setFeatureIconPreviews(prev => {
+      const newPreviews = [...prev];
+      newPreviews[index] = preview;
+      return newPreviews;
+    });
   };
 
   const addFeature = () => {
+    if (formData.features.length >= 4) {
+      toast.error('Maximum 4 features allowed');
+      return;
+    }
+    
     const newFeature: Feature = {
-      id: Date.now().toString(),
-      title: '',
-      description: '',
-      icon: ''
+      featureTitle: '',
+      featureDescription: '',
+      featureIcon: null
     };
     setFormData(prev => ({
       ...prev,
       features: [...prev.features, newFeature]
     }));
+    setFeatureIconPreviews(prev => [...prev, '']);
   };
 
   const removeFeature = (index: number) => {
@@ -88,12 +115,53 @@ const AboutFeaturesSection = () => {
       ...prev,
       features: prev.features.filter((_, i) => i !== index)
     }));
+    setFeatureIconPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSave = () => {
-    console.log('Saving About Us Features Section:', formData);
-    alert('About Us Features Section saved successfully!');
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const featureIcons = formData.features
+        .map(feature => feature.featureIcon)
+        .filter(icon => icon !== null) as File[];
+      
+      const updateData = {
+        features: formData.features.map(feature => ({
+          featureTitle: feature.featureTitle,
+          featureDescription: feature.featureDescription
+        })),
+        ...(formData.sectionImage && { sectionImage: formData.sectionImage }),
+        ...(featureIcons.length > 0 && { featureIcons })
+      };
+
+      await aboutContentApi.updateFeaturesSection(updateData);
+      toast.success('Features section updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating features section:', error);
+      toast.error(error.message || 'Failed to update features section');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (fetchLoading) {
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">About Us - Features Section</h1>
+          <p className="text-gray-600 mt-2">Manage the features section content for the About Us page</p>
+        </div>
+        <Card className="p-6">
+          <div className="animate-pulse space-y-6">
+            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-24 bg-gray-200 rounded"></div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -106,21 +174,25 @@ const AboutFeaturesSection = () => {
         <div className="space-y-6">
           <ImageUpload
             label="Section Image"
-            value={formData.sectionImage}
-            onChange={(file, preview) => setFormData({...formData, sectionImage: preview})}
+            value={sectionImagePreview}
+            onChange={handleSectionImageChange}
           />
 
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Features</h3>
-              <Button onClick={addFeature} variant="outline">
+              <h3 className="text-lg font-medium text-gray-900">Features (Max 4)</h3>
+              <Button 
+                onClick={addFeature} 
+                variant="outline"
+                disabled={formData.features.length >= 4}
+              >
                 Add Feature
               </Button>
             </div>
             
             <div className="space-y-4">
               {formData.features.map((feature, index) => (
-                <Card key={feature.id} className="p-4 border border-gray-200">
+                <Card key={index} className="p-4 border border-gray-200">
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <h4 className="font-medium">Feature {index + 1}</h4>
@@ -140,16 +212,16 @@ const AboutFeaturesSection = () => {
                           Title
                         </label>
                         <Input
-                          value={feature.title}
-                          onChange={(e) => handleFeatureChange(index, 'title', e.target.value)}
+                          value={feature.featureTitle}
+                          onChange={(e) => handleFeatureChange(index, 'featureTitle', e.target.value)}
                           placeholder="Enter feature title"
                         />
                       </div>
                       <div>
                         <ImageUpload
                           label="Feature Icon"
-                          value={feature.icon}
-                          onChange={(file, preview) => updateFeature(index, 'icon', preview)}
+                          value={featureIconPreviews[index] || ''}
+                          onChange={(file, preview) => handleFeatureIconChange(index, file, preview)}
                         />
                       </div>
                     </div>
@@ -159,8 +231,8 @@ const AboutFeaturesSection = () => {
                         Description
                       </label>
                       <Textarea
-                        value={feature.description}
-                        onChange={(e) => handleFeatureChange(index, 'description', e.target.value)}
+                        value={feature.featureDescription}
+                        onChange={(e) => handleFeatureChange(index, 'featureDescription', e.target.value)}
                         placeholder="Enter feature description"
                         rows={3}
                       />
@@ -172,8 +244,12 @@ const AboutFeaturesSection = () => {
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
-              Save Changes
+            <Button 
+              onClick={handleSave} 
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>

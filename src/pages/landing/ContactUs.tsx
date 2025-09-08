@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../../components/landing/Layout';
 
 const ContactUs = () => {
@@ -10,6 +10,89 @@ const ContactUs = () => {
     subject: 'General Inquiry',
     message: ''
   });
+
+  // Contact content state
+  const [contactData, setContactData] = useState({
+    hero: {
+      mainTitle: 'Contact Us',
+      subtitle: 'Any question or remarks? Just write us a message!'
+    },
+    information: {
+      sectionTitle: 'Contact Information',
+      sectionSubtitle: 'Say something to start a live chat!',
+      phoneNumber: '+96 65697 90065',
+      emailAddress: 'clientservices@trans.com.co',
+      addressLine1: 'Level 7 Almurjanah Tower',
+      addressLine2: 'Prince Sultan St.',
+      addressLine3: 'Ar Rawdah,Jeddah , KSA'
+    }
+  });
+
+  const [loading, setLoading] = useState(true);
+
+  // Fetch contact content from backend
+  useEffect(() => {
+    const fetchContactContent = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/contact-content', {
+          headers: {
+            'Content-Type': 'application/json',
+            'lang': 'en'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Contact content fetched:', data);
+          console.log('Full API response structure:', JSON.stringify(data, null, 2));
+          
+          // Check if data has the expected structure
+          let sections;
+          if (data.success && data.data) {
+            sections = data.data;
+          } else if (data['contact-hero'] || data['contact-information']) {
+            // Direct structure without success wrapper
+            sections = data;
+          } else {
+            console.error('Unexpected API response structure:', data);
+            return;
+          }
+          
+          console.log('Extracted sections:', sections);
+          console.log('Contact hero data:', sections['contact-hero']);
+          console.log('Contact information data:', sections['contact-information']);
+          
+          // Update contact data with fetched content
+          const newContactData = {
+            hero: {
+              mainTitle: sections['contact-hero']?.mainTitle || 'Contact Us',
+              subtitle: sections['contact-hero']?.subtitle || 'Any question or remarks? Just write us a message!'
+            },
+            information: {
+              sectionTitle: sections['contact-information']?.sectionTitle || 'Contact Information',
+              sectionSubtitle: sections['contact-information']?.sectionSubtitle || 'Say something to start a live chat!',
+              phoneNumber: sections['contact-information']?.phoneNumber || '+96 65697 90065',
+              emailAddress: sections['contact-information']?.emailAddress || 'clientservices@trans.com.co',
+              addressLine1: sections['contact-information']?.addressLine1 || 'Level 7 Almurjanah Tower',
+              addressLine2: sections['contact-information']?.addressLine2 || 'Prince Sultan St.',
+              addressLine3: sections['contact-information']?.addressLine3 || 'Ar Rawdah,Jeddah , KSA'
+            }
+          };
+          
+          console.log('Setting new contact data:', newContactData);
+          setContactData(newContactData);
+        } else {
+          console.error('Failed to fetch contact content:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching contact content:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchContactContent();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -25,16 +108,26 @@ const ContactUs = () => {
     alert('Thank you for your message! We will get back to you soon.');
   };
 
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="text-gray-600">Loading...</div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       {/* Hero Section */}
       <section className="bg-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl lg:text-5xl font-bold mb-6" style={{color: '#3479EA'}}>
-            Contact Us
+            {contactData.hero.mainTitle}
           </h1>
           <p className="text-[#717171] text-lg font-medium max-w-2xl mx-auto">
-            Any question or remarks? Just write us a message!
+            {contactData.hero.subtitle}
           </p>
         </div>
       </section>
@@ -47,8 +140,8 @@ const ContactUs = () => {
               {/* Contact Information */}
               <div className="lg:col-span-4 p-8 lg:p-12 text-white relative overflow-hidden rounded-xl" style={{background: 'linear-gradient(135deg, #4F7DF3 0%, #3B82F6 50%, #2563EB 100%)'}}>
                 <div className="relative z-10">
-                  <h2 className="text-3xl font-semibold mb-4">Contact Information</h2>
-                  <p className="mb-16 text-lg" style={{color: '#C9C9C9'}}>Say something to start a live chat!</p>
+                  <h2 className="text-3xl font-semibold mb-4">{contactData.information.sectionTitle}</h2>
+                  <p className="mb-16 text-lg" style={{color: '#C9C9C9'}}>{contactData.information.sectionSubtitle}</p>
 
                   <div className="space-y-12 mt-28">
                     <div className="flex items-center space-x-4">
@@ -59,7 +152,7 @@ const ContactUs = () => {
                           className="w-6 h-6"
                         />
                       </div>
-                      <span className="text-base">+96 65697 90065</span>
+                      <span className="text-base">{contactData.information.phoneNumber}</span>
                     </div>
 
                     <div className="flex items-center space-x-4">
@@ -70,7 +163,7 @@ const ContactUs = () => {
                           className="w-6 h-6"
                         />
                       </div>
-                      <span className="text-base">clientservices@trans.com.co</span>
+                      <span className="text-base">{contactData.information.emailAddress}</span>
                     </div>
 
                     <div className="flex items-start space-x-4">
@@ -82,9 +175,9 @@ const ContactUs = () => {
                         />
                       </div>
                       <div className="text-base leading-relaxed">
-                        <div>Level 7 Almurjanah Tower</div>
-                        <div>Prince Sultan St.</div>
-                        <div>Ar Rawdah,Jeddah , KSA</div>
+                        <div>{contactData.information.addressLine1}</div>
+                        <div>{contactData.information.addressLine2}</div>
+                        <div>{contactData.information.addressLine3}</div>
                       </div>
                     </div>
                   </div>

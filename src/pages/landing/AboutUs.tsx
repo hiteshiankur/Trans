@@ -1,7 +1,66 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../../components/landing/Layout';
+import { aboutContentApi } from '../../lib/api';
 
 const AboutUs = () => {
+  const [aboutData, setAboutData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAboutData();
+  }, []);
+
+  const fetchAboutData = async () => {
+    try {
+      setLoading(true);
+      const response = await aboutContentApi.getAboutContent();
+      console.log('API Response:', response); // Debug log
+      
+      // The API returns data under 'aboutPage' key
+      if (response.aboutPage) {
+        setAboutData(response.aboutPage);
+      } else {
+        console.error('No aboutPage data found in response:', response);
+        setAboutData(null);
+      }
+    } catch (error) {
+      console.error('Error fetching about data:', error);
+      setAboutData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!aboutData) {
+    return (
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Unable to load About Us content</h2>
+            <p className="text-gray-600">Please try again later.</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Handle both API response structures
+  const heroData = aboutData['about-hero'] || aboutData.find?.((section: any) => section.sectionType === 'about-hero')?.contentEn || {};
+  const featuresData = aboutData['about-features'] || aboutData.find?.((section: any) => section.sectionType === 'about-features')?.contentEn || {};
+  const missionData = aboutData['about-mission'] || aboutData.find?.((section: any) => section.sectionType === 'about-mission')?.contentEn || {};
+  const visionData = aboutData['about-vision'] || aboutData.find?.((section: any) => section.sectionType === 'about-vision')?.contentEn || {};
+  const objectivesData = aboutData['about-objectives'] || aboutData.find?.((section: any) => section.sectionType === 'about-objectives')?.contentEn || {};
+
   return (
     <Layout>
       {/* Hero Section */}
@@ -10,21 +69,21 @@ const AboutUs = () => {
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
             <div className="space-y-6 lg:col-span-2">
               <div className="text-lg font-semibold text-gray-900 uppercase tracking-[0.40em]">
-                A BIT
+                {heroData.subtitle || 'A BIT'}
               </div>
               <h1 className="text-4xl lg:text-5xl font-bold leading-tight" style={{color: '#3479EA'}}>
-                About Us
+                {heroData.mainTitle || 'About Us'}
               </h1>
               <p className="text-lg text-gray-600 leading-relaxed">
-                With more than 14 years of knowledge in transport planning and managing city transportation and fleet manpower for mega-project in the KSA. You can rely on TRANS to deliver world-class transport management and consultancy. We offer a comprehensive suite of services, all tailored to your exact needs
+                {heroData.description || 'With more than 14 years of knowledge in transport planning and managing city transportation and fleet manpower for mega-project in the KSA. You can rely on TRANS to deliver world-class transport management and consultancy. We offer a comprehensive suite of services, all tailored to your exact needs'}
               </p>
               <button className="px-8 py-3 text-sm text-white font-normal rounded hover:bg-blue-700 transition-colors" style={{backgroundColor: '#3479EA'}}>
-                Explore Now
+                {heroData.buttonText || 'Explore Now'}
               </button>
             </div>
             <div className="relative flex justify-center lg:col-span-3">
               <img 
-                src="/src/assets/images/group.svg"
+                src={heroData.heroBackgroundImage || "/src/assets/images/group.svg"}
                 alt="Transport Management Team"
                 className="w-[90%] h-auto object-contain"
               />
@@ -40,7 +99,7 @@ const AboutUs = () => {
             {/* Left Column - Image */}
             <div className="relative lg:col-span-3">
               <img 
-                src="/src/assets/images/parcelboy.svg"
+                src={featuresData.sectionImage || "/src/assets/images/parcelboy.svg"}
                 alt="Delivery Professional"
                 className="w-auto h-auto object-contain"
               />
@@ -48,73 +107,44 @@ const AboutUs = () => {
 
             {/* Right Column - Features */}
             <div className="space-y-8 lg:col-span-2 flex flex-col gap-8 ">
-              {/* Bespoke Solutions */}
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <img 
-                    src="/src/assets/images/bespoke.svg"
-                    alt="Bespoke Solutions"
-                    className="w-[52px] h-[52px]"
-                  />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-medium text-[#1C1F35] mb-2">Bespoke Solutions Every Time</h3>
-                  <p className="text-[#666C89] text-base">
-                    We've never had a templated approach. Instead, we collaborate closely with our partners to devise unique project plans that optimize our clients' capabilities and match their working methods.
-                  </p>
-                </div>
-              </div>
-
-              {/* Single-Provider Efficiencies */}
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <img 
-                    src="/src/assets/images/single-provider.svg"
-                    alt="Single Provider"
-                    className="w-[52px] h-[52px]"
-                  />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-medium text-[#1C1F35] mb-2">Single-Provider Efficiencies</h3>
-                  <p className="text-[#666C89] text-base">
-                    It takes time and money to commission, brief and manage multiple suppliers. We relieve that burden, offering you radically reduced administrative and operational overhead.
-                  </p>
-                </div>
-              </div>
-
-              {/* World Class Technology */}
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <img 
-                    src="/src/assets/images/technology.svg"
-                    alt="Technology"
-                    className="w-[52px] h-[52px]"
-                  />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-medium text-[#1C1F35] mb-2">World Class Technology</h3>
-                  <p className="text-[#666C89] text-base">
-                    Because we work uniquely, we keep working with the most advanced solutions to achieve the intended outcomes.
-                  </p>
-                </div>
-              </div>
-
-              {/* Ethics */}
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <img 
-                    src="/src/assets/images/ethics.svg"
-                    alt="Ethics"
-                    className="w-[52px] h-[52px]"
-                  />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-medium text-[#1C1F35] mb-2">It's a matter of ethics</h3>
-                  <p className="text-[#666C89] text-base">
-                    Good business relies on trust, openness, and transparency - and our hiring policies reflect this. We choose our team members based on their creativity, disciplinary and achievements.
-                  </p>
-                </div>
-              </div>
+              {featuresData.features && featuresData.features.length > 0 ? (
+                featuresData.features.map((feature: any, index: number) => (
+                  <div key={index} className="flex items-start space-x-4">
+                    <div className="flex-shrink-0">
+                      <img 
+                        src={feature.featureIcon || "/src/assets/images/bespoke.svg"}
+                        alt={feature.featureTitle}
+                        className="w-[52px] h-[52px]"
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-medium text-[#1C1F35] mb-2">{feature.featureTitle}</h3>
+                      <p className="text-[#666C89] text-base">
+                        {feature.featureDescription}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                // Fallback content
+                <>
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0">
+                      <img 
+                        src="/src/assets/images/bespoke.svg"
+                        alt="Bespoke Solutions"
+                        className="w-[52px] h-[52px]"
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-medium text-[#1C1F35] mb-2">Bespoke Solutions Every Time</h3>
+                      <p className="text-[#666C89] text-base">
+                        We've never had a templated approach. Instead, we collaborate closely with our partners to devise unique project plans that optimize our clients' capabilities and match their working methods.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -129,15 +159,15 @@ const AboutUs = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-64 items-center">
             <div className="space-y-6 px-7">
               <h2 className="text-3xl lg:text-4xl font-bold text-white">
-                Our Mission
+                {missionData.missionTitle || 'Our Mission'}
               </h2>
               <p className="text-lg text-white opacity-90">
-                To build a premium standard values with each step of our Deliverables to our clients.
+                {missionData.missionDescription || 'To build a premium standard values with each step of our Deliverables to our clients.'}
               </p>
             </div>
             <div className="flex justify-center relative">
               <img 
-                src="/src/assets/images/mission.svg"
+                src={missionData.missionIcon || "/src/assets/images/mission.svg"}
                 alt="Our Mission"
                 className="w-64 h-64 object-contain"
               />
@@ -155,17 +185,17 @@ const AboutUs = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-28 items-center">
             <div className="flex justify-center order-2 lg:order-1 relative top-5">
               <img 
-                src="/src/assets/images/vision.svg"
+                src={visionData.visionIcon || "/src/assets/images/vision.svg"}
                 alt="Our Vision"
                 className="w-64 h-64 object-contain"
               />
             </div>
             <div className="space-y-6 order-1 lg:order-2 pl-52 pr-5">
               <h2 className="text-3xl lg:text-4xl font-bold" style={{color: '#3479EA'}}>
-                Our Vision
+                {visionData.visionTitle || 'Our Vision'}
               </h2>
               <p className="text-lg text-gray-700">
-                To be the industry trailblazer who delivers innovative services and solutions in the With this trend in line with the vision of the Kingdom.
+                {visionData.visionDescription || 'To be the industry trailblazer who delivers innovative services and solutions in the With this trend in line with the vision of the Kingdom.'}
               </p>
             </div>
           </div>
@@ -184,32 +214,46 @@ const AboutUs = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-96 items-center">
             <div className="space-y-6">
               <h2 className="text-3xl lg:text-4xl font-bold text-white">
-                Our Objectives
+                {objectivesData.objectivesTitle || 'Our Objectives'}
               </h2>
               <div className="pl-4">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-white opacity-90 text-lg">
-                    To be the most sought-after transportation partner thanks to our capabilities and ethics.
-                  </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-white opacity-90 text-lg">
-                    To be the most idol and iconic model of services in transport with our clients.
-                  </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-white opacity-90 text-lg">
-                    To work with our clients with integrity, in a spirit of genuine partnership.
-                  </p>
-                </div>
+                {objectivesData.objectives && objectivesData.objectives.length > 0 ? (
+                  objectivesData.objectives.map((objective: any, index: number) => (
+                    <div key={index} className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
+                      <p className="text-white opacity-90 text-lg">
+                        {objective.objectiveText}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  // Fallback content
+                  <>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
+                      <p className="text-white opacity-90 text-lg">
+                        To be the most sought-after transportation partner thanks to our capabilities and ethics.
+                      </p>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
+                      <p className="text-white opacity-90 text-lg">
+                        To be the most idol and iconic model of services in transport with our clients.
+                      </p>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
+                      <p className="text-white opacity-90 text-lg">
+                        To work with our clients with integrity, in a spirit of genuine partnership.
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div className="flex justify-center relative">
               <img 
-                src="/src/assets/images/objectives.svg"
+                src={objectivesData.objectivesIcon || "/src/assets/images/objectives.svg"}
                 alt="Our Objectives"
                 className="w-64 h-64 object-contain"
               />

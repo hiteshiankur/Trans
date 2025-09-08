@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -6,57 +6,151 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ImageUpload from '@/components/ui/ImageUpload';
 
 interface Service {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
+  serviceTitle: string;
+  serviceDescription: string;
+  serviceIcon?: string;
+}
+
+interface ServicesData {
+  sectionTitle: string;
+  sectionDescription: string;
+  services: Service[];
 }
 
 const ServicesSection = () => {
-  const [sectionData, setSectionData] = useState({
-    title: "Our Services",
-    description: "TRANS plans, designs, and monitor transport systems of all types and sizes from corporate-scale to one-off signature projects. Above all, we work with complete transparency to optimize the cost and fulfill our client needs.",
+  const [servicesData, setServicesData] = useState<ServicesData>({
+    sectionTitle: "",
+    sectionDescription: "",
     services: [
-      {
-        id: '1',
-        title: 'Transport solutions',
-        description: 'Stay updated on your cargo\'s exact location with instant tracking notifications',
-        icon: '/src/assets/images/transport-solutions.svg'
-      },
-      {
-        id: '2',
-        title: 'Data analysis',
-        description: 'Cut costs and time by letting our AI-driven system optimize delivery routes.',
-        icon: '/src/assets/images/data-analysis.svg'
-      },
-      {
-        id: '3',
-        title: 'Hardware logistics',
-        description: 'Make data-driven decisions with comprehensive logistics reports at your fingertips.',
-        icon: '/src/assets/images/hardware-logistics.svg'
-      },
-      {
-        id: '4',
-        title: 'Fleet management',
-        description: 'Make data-driven decisions with comprehensive logistics reports at your fingertips.',
-        icon: '/src/assets/images/fleet-management.svg'
-      }
-    ] as Service[]
+      { serviceTitle: "", serviceDescription: "", serviceIcon: "" },
+      { serviceTitle: "", serviceDescription: "", serviceIcon: "" },
+      { serviceTitle: "", serviceDescription: "", serviceIcon: "" },
+      { serviceTitle: "", serviceDescription: "", serviceIcon: "" }
+    ]
   });
+  const [loading, setLoading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
-  const handleServiceUpdate = (id: string, field: keyof Service, value: string) => {
-    setSectionData(prev => ({
+  // Fetch existing services content
+  const fetchServicesContent = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:3000/api/admin/content/services', {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZWU5MWE2YS1iZGQ5LTQ5NzctOTk1My02M2ZlMDU3MTczNjYiLCJ1c2VyUm9sZSI6InN1cGVyQWRtaW4iLCJpYXQiOjE3NTY4ODUwNzYsImV4cCI6MTc1OTQ3NzA3Nn0.GSgw6Qq825txLZryTs8J4M9rQUAexo2wKQO5W7yImVQ',
+          'lang': 'en',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Full API response:', result);
+        
+        // Handle different response structures
+        let content: any = {};
+        if (result.data?.section?.contentEn) {
+          content = result.data.section.contentEn;
+        } else if (result.data?.contentEn) {
+          content = result.data.contentEn;
+        } else if (result.section?.contentEn) {
+          content = result.section.contentEn;
+        } else if (result.contentEn) {
+          content = result.contentEn;
+        } else if (result.data) {
+          content = result.data;
+        }
+        
+        console.log('Parsed content:', content);
+        
+        setServicesData({
+          sectionTitle: content.sectionTitle || "",
+          sectionDescription: content.sectionDescription || "",
+          services: content.services || [
+            { serviceTitle: "", serviceDescription: "", serviceIcon: "" },
+            { serviceTitle: "", serviceDescription: "", serviceIcon: "" },
+            { serviceTitle: "", serviceDescription: "", serviceIcon: "" },
+            { serviceTitle: "", serviceDescription: "", serviceIcon: "" }
+          ]
+        });
+      } else {
+        console.log('API response not ok:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching services content:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchServicesContent();
+  }, []);
+
+  const handleServiceUpdate = (index: number, field: keyof Service, value: string) => {
+    setServicesData(prev => ({
       ...prev,
-      services: prev.services.map(service => 
-        service.id === id ? { ...service, [field]: value } : service
+      services: prev.services.map((service, i) => 
+        i === index ? { ...service, [field]: value } : service
       )
     }));
   };
 
-  const handleSave = () => {
-    // TODO: API call to save services section data
-    console.log('Saving services data:', sectionData);
-    alert('Services section updated successfully!');
+  const handleFileUpload = (index: number, file: File | null) => {
+    if (file) {
+      const newFiles = [...uploadedFiles];
+      newFiles[index] = file;
+      setUploadedFiles(newFiles);
+    }
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      
+      // Add content data
+      formData.append('contentEn[sectionTitle]', servicesData.sectionTitle);
+      formData.append('contentEn[sectionDescription]', servicesData.sectionDescription);
+      
+      // Add services data
+      servicesData.services.forEach((service, index) => {
+        formData.append(`contentEn[services][${index}][serviceTitle]`, service.serviceTitle);
+        formData.append(`contentEn[services][${index}][serviceDescription]`, service.serviceDescription);
+      });
+      
+      // Add uploaded files
+      uploadedFiles.forEach((file) => {
+        if (file) {
+          formData.append('serviceIcon', file);
+        }
+      });
+
+      const response = await fetch('http://localhost:3000/api/admin/content/services', {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZWU5MWE2YS1iZGQ5LTQ5NzctOTk1My02M2ZlMDU3MTczNjYiLCJ1c2VyUm9sZSI6InN1cGVyQWRtaW4iLCJpYXQiOjE3NTY4ODUwNzYsImV4cCI6MTc1OTQ3NzA3Nn0.GSgw6Qq825txLZryTs8J4M9rQUAexo2wKQO5W7yImVQ',
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Services updated successfully:', result);
+        alert('Services section updated successfully!');
+        // Refresh data
+        await fetchServicesContent();
+      } else {
+        const errorData = await response.json();
+        console.error('Error updating services:', errorData);
+        alert('Error updating services: ' + (errorData.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error saving services:', error);
+      alert('Error saving services. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -78,8 +172,8 @@ const ServicesSection = () => {
                 Section Title
               </label>
               <Input
-                value={sectionData.title}
-                onChange={(e) => setSectionData({...sectionData, title: e.target.value})}
+                value={servicesData.sectionTitle}
+                onChange={(e) => setServicesData({...servicesData, sectionTitle: e.target.value})}
                 placeholder="Section title"
               />
             </div>
@@ -88,8 +182,8 @@ const ServicesSection = () => {
                 Section Description
               </label>
               <Textarea
-                value={sectionData.description}
-                onChange={(e) => setSectionData({...sectionData, description: e.target.value})}
+                value={servicesData.sectionDescription}
+                onChange={(e) => setServicesData({...servicesData, sectionDescription: e.target.value})}
                 placeholder="Section description"
                 rows={4}
               />
@@ -100,20 +194,20 @@ const ServicesSection = () => {
         {/* Services */}
         <Card>
           <CardHeader>
-            <CardTitle>Services ({sectionData.services.length})</CardTitle>
+            <CardTitle>Services ({servicesData.services.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {sectionData.services.map((service, index) => (
-                <div key={service.id} className="border rounded-lg p-4 space-y-4">
+              {servicesData.services.map((service, index) => (
+                <div key={index} className="border rounded-lg p-4 space-y-4">
                   <h3 className="font-semibold text-lg">Service {index + 1}</h3>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Service Title
                     </label>
                     <Input
-                      value={service.title}
-                      onChange={(e) => handleServiceUpdate(service.id, 'title', e.target.value)}
+                      value={service.serviceTitle}
+                      onChange={(e) => handleServiceUpdate(index, 'serviceTitle', e.target.value)}
                       placeholder="Service title"
                     />
                   </div>
@@ -122,17 +216,18 @@ const ServicesSection = () => {
                       Service Description
                     </label>
                     <Textarea
-                      value={service.description}
-                      onChange={(e) => handleServiceUpdate(service.id, 'description', e.target.value)}
+                      value={service.serviceDescription}
+                      onChange={(e) => handleServiceUpdate(index, 'serviceDescription', e.target.value)}
                       placeholder="Service description"
                       rows={3}
                     />
                   </div>
                   <ImageUpload
                     label="Service Icon"
-                    value={service.icon}
-                    onChange={(file, preview) => handleServiceUpdate(service.id, 'icon', preview)}
+                    value={service.serviceIcon || ""}
+                    onChange={(file) => handleFileUpload(index, file)}
                   />
+                  
                 </div>
               ))}
             </div>
@@ -140,7 +235,9 @@ const ServicesSection = () => {
         </Card>
 
         <div className="flex justify-end space-x-4">
-          <Button onClick={handleSave}>Save Changes</Button>
+          <Button onClick={handleSave} disabled={loading}>
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
         </div>
       </div>
     </div>

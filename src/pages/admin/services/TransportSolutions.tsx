@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,24 +7,55 @@ import ImageUpload from '@/components/ui/ImageUpload';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface ServiceItem {
-  id: string;
-  text: string;
+  serviceText: string;
 }
 
 const ServicesTransportSolutions = () => {
   const [formData, setFormData] = useState({
-    title: 'Transport solutions',
-    description: 'We supply and manage distinguished solutions to suit our clients\' needs with significant experience.',
-    image: '/src/assets/images/transportSolutions.svg',
-    services: [
-      { id: '1', text: 'Shuttle bus service.' },
-      { id: '2', text: 'Electrical appliances.' },
-      { id: '3', text: 'Autonomous solutions.' },
-      { id: '4', text: 'Pool buggy transport.' },
-      { id: '5', text: 'Executive transport services.' },
-      { id: '6', text: 'Traffic management.' }
-    ] as ServiceItem[]
+    title: '',
+    description: '',
+    sectionImage: '',
+    services: [] as ServiceItem[]
   });
+  const [loading, setLoading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  // Fetch existing transport solutions content
+  const fetchTransportSolutionsContent = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:3000/api/admin/service-content/services-transport-solutions', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZWU5MWE2YS1iZGQ5LTQ5NzctOTk1My02M2ZlMDU3MTczNjYiLCJ1c2VyUm9sZSI6InN1cGVyQWRtaW4iLCJpYXQiOjE3NTY4ODUwNzYsImV4cCI6MTc1OTQ3NzA3Nn0.GSgw6Qq825txLZryTs8J4M9rQUAexo2wKQO5W7yImVQ`,
+          'lang': 'en',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Transport solutions content fetched:', result);
+        
+        const content = result.section?.contentEn || result.data?.section?.contentEn || {};
+        setFormData({
+          title: content.title || '',
+          description: content.description || '',
+          sectionImage: content.sectionImage || '',
+          services: content.services || []
+        });
+      } else {
+        console.log('No existing transport solutions content found');
+      }
+    } catch (error) {
+      console.error('Error fetching transport solutions content:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTransportSolutionsContent();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -38,15 +69,14 @@ const ServicesTransportSolutions = () => {
     setFormData(prev => ({
       ...prev,
       services: prev.services.map((service, i) => 
-        i === index ? { ...service, text: value } : service
+        i === index ? { ...service, serviceText: value } : service
       )
     }));
   };
 
   const addService = () => {
     const newService: ServiceItem = {
-      id: Date.now().toString(),
-      text: ''
+      serviceText: ''
     };
     setFormData(prev => ({
       ...prev,
@@ -61,9 +91,47 @@ const ServicesTransportSolutions = () => {
     }));
   };
 
-  const handleSave = () => {
-    console.log('Saving Services Transport Solutions:', formData);
-    alert('Services Transport Solutions saved successfully!');
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const formDataToSend = new FormData();
+      
+      // Add content data
+      formDataToSend.append('title', formData.title);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('services', JSON.stringify(formData.services));
+      
+      // Add uploaded file if exists
+      if (uploadedFile) {
+        formDataToSend.append('sectionImage', uploadedFile);
+      }
+
+      const response = await fetch('http://localhost:3000/api/admin/service-content/transport-solutions', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZWU5MWE2YS1iZGQ5LTQ5NzctOTk1My02M2ZlMDU3MTczNjYiLCJ1c2VyUm9sZSI6InN1cGVyQWRtaW4iLCJpYXQiOjE3NTY4ODUwNzYsImV4cCI6MTc1OTQ3NzA3Nn0.GSgw6Qq825txLZryTs8J4M9rQUAexo2wKQO5W7yImVQ`,
+          'lang': 'en',
+        },
+        body: formDataToSend,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Transport solutions updated successfully:', result);
+        alert('Transport Solutions section updated successfully!');
+        // Refresh data
+        await fetchTransportSolutionsContent();
+      } else {
+        const errorData = await response.json();
+        console.error('Error updating transport solutions:', errorData);
+        alert('Error updating transport solutions: ' + (errorData.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error saving transport solutions:', error);
+      alert('Error saving transport solutions. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -102,8 +170,17 @@ const ServicesTransportSolutions = () => {
 
           <ImageUpload
             label="Section Image"
-            value={formData.image}
-            onChange={(file, preview) => setFormData({...formData, image: preview})}
+            value={formData.sectionImage}
+            onChange={(file) => {
+              setUploadedFile(file);
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  setFormData(prev => ({...prev, sectionImage: e.target?.result as string}));
+                };
+                reader.readAsDataURL(file);
+              }
+            }}
           />
 
           <div>
@@ -116,18 +193,20 @@ const ServicesTransportSolutions = () => {
             
             <div className="space-y-3">
               {formData.services.map((service, index) => (
-                <div key={service.id} className="flex items-center space-x-3">
+                <div key={index} className="flex items-center space-x-3">
                   <Input
-                    value={service.text}
+                    value={service.serviceText}
                     onChange={(e) => handleServiceChange(index, e.target.value)}
                     placeholder="Enter service item"
                     className="flex-1"
+                    disabled={loading}
                   />
                   <Button 
                     onClick={() => removeService(index)} 
                     variant="outline" 
                     size="sm"
                     className="text-red-600 hover:text-red-700"
+                    disabled={loading}
                   >
                     Remove
                   </Button>
@@ -137,8 +216,12 @@ const ServicesTransportSolutions = () => {
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
-              Save Changes
+            <Button 
+              onClick={handleSave} 
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={loading}
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>

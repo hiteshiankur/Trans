@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,12 +7,14 @@ import ImageUpload from '@/components/ui/ImageUpload';
 
 const ServicesDataAnalysis = () => {
   const [formData, setFormData] = useState({
-    title: 'Data analysis',
-    description: 'We engage at every stage of transport planning and design. Your project can benefit from our strengths in capacity analysis, traffic management, and intelligent transport systems. And at ground level, we incorporate the best in wayfinding systems.',
-    image: '/src/assets/images/dataAnalysis.svg',
-    subsectionTitle: 'Commercial and sales advice',
-    subsectionDescription: 'If your company is looking for a project of any size, we can help you build a winning proposal. Our consultants will help ensure that your submission satisfies the highest levels of scrutiny and evaluation, both for commercial and civilian projects.'
+    title: '',
+    mainDescription: '',
+    sectionImage: '',
+    subsectionTitle: '',
+    subsectionDescription: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -22,9 +24,80 @@ const ServicesDataAnalysis = () => {
     }));
   };
 
-  const handleSave = () => {
-    console.log('Saving Services Data Analysis:', formData);
-    alert('Services Data Analysis saved successfully!');
+  useEffect(() => {
+    fetchDataAnalysisContent();
+  }, []);
+
+  const fetchDataAnalysisContent = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:3000/api/admin/service-content/services-data-analysis', {
+        headers: {
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZWU5MWE2YS1iZGQ5LTQ5NzctOTk1My02M2ZlMDU3MTczNjYiLCJ1c2VyUm9sZSI6InN1cGVyQWRtaW4iLCJpYXQiOjE3NTY4ODUwNzYsImV4cCI6MTc1OTQ3NzA3Nn0.GSgw6Qq825txLZryTs8J4M9rQUAexo2wKQO5W7yImVQ',
+          'lang': 'en'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.section) {
+          const content = data.section.contentEn || {};
+          setFormData({
+            title: content.title || '',
+            mainDescription: content.mainDescription || '',
+            sectionImage: content.sectionImage || '',
+            subsectionTitle: content.subsectionTitle || '',
+            subsectionDescription: content.subsectionDescription || ''
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching data analysis content:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      
+      const formDataToSend = new FormData();
+      formDataToSend.append('title', formData.title);
+      formDataToSend.append('mainDescription', formData.mainDescription);
+      formDataToSend.append('subsectionTitle', formData.subsectionTitle);
+      formDataToSend.append('subsectionDescription', formData.subsectionDescription);
+      
+      if (uploadedFile) {
+        formDataToSend.append('sectionImage', uploadedFile);
+      }
+      
+      const response = await fetch('http://localhost:3000/api/admin/service-content/data-analysis', {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZWU5MWE2YS1iZGQ5LTQ5NzctOTk1My02M2ZlMDU3MTczNjYiLCJ1c2VyUm9sZSI6InN1cGVyQWRtaW4iLCJpYXQiOjE3NTY4ODUwNzYsImV4cCI6MTc1OTQ3NzA3Nn0.GSgw6Qq825txLZryTs8J4M9rQUAexo2wKQO5W7yImVQ',
+          'lang': 'en'
+        },
+        body: formDataToSend
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          alert('Data Analysis section updated successfully!');
+          fetchDataAnalysisContent(); // Refresh data
+        } else {
+          alert('Error updating section: ' + (data.message || 'Unknown error'));
+        }
+      } else {
+        alert('Error updating section');
+      }
+    } catch (error) {
+      console.error('Error saving data analysis content:', error);
+      alert('Error saving changes');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -45,6 +118,7 @@ const ServicesDataAnalysis = () => {
               value={formData.title}
               onChange={handleInputChange}
               placeholder="Enter section title"
+              disabled={loading}
             />
           </div>
 
@@ -53,18 +127,28 @@ const ServicesDataAnalysis = () => {
               Main Description
             </label>
             <Textarea
-              name="description"
-              value={formData.description}
+              name="mainDescription"
+              value={formData.mainDescription}
               onChange={handleInputChange}
               placeholder="Enter main description"
               rows={4}
+              disabled={loading}
             />
           </div>
 
           <ImageUpload
             label="Section Image"
-            value={formData.image}
-            onChange={(file, preview) => setFormData({...formData, image: preview})}
+            value={formData.sectionImage}
+            onChange={(file) => {
+              setUploadedFile(file);
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  setFormData(prev => ({...prev, sectionImage: e.target?.result as string}));
+                };
+                reader.readAsDataURL(file);
+              }
+            }}
           />
 
           <div>
@@ -76,6 +160,7 @@ const ServicesDataAnalysis = () => {
               value={formData.subsectionTitle}
               onChange={handleInputChange}
               placeholder="Enter subsection title"
+              disabled={loading}
             />
           </div>
 
@@ -89,12 +174,17 @@ const ServicesDataAnalysis = () => {
               onChange={handleInputChange}
               placeholder="Enter subsection description"
               rows={4}
+              disabled={loading}
             />
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
-              Save Changes
+            <Button 
+              onClick={handleSave} 
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={loading}
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>
